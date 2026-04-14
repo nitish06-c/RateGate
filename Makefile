@@ -31,4 +31,11 @@ docker-down:
 	docker compose -f $(DOCKER_COMPOSE) down -v
 
 integration:
-	go test -v -race -tags=integration ./integration/...
+	go test -v -race -tags=integration -timeout=60s ./integration/...
+
+demo:
+	@echo "Sending 15 requests to limiter-1 (limit=10). Expect 429 after request 10."
+	@for i in $$(seq 1 15); do \
+		printf "Request $$i: "; \
+		curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8081/; \
+	done
