@@ -1,6 +1,6 @@
-# Distributed Rate Limiter
+# RateGate
 
-Rate limiting across multiple nodes is harder than it looks. A local counter per node breaks as soon as you run two instances — both see the counter below the limit, both allow, and you've exceeded it. This project enforces shared quotas across multiple nodes using Redis as the coordination layer, with all counter operations running atomically via Lua scripts.
+Rate limiting across multiple nodes is harder than it looks. A local counter per node breaks as soon as you run two instances — both see the counter below the limit, both allow, and you've exceeded it. RateGate enforces shared quotas across multiple nodes using Redis as the coordination layer, with all counter operations running atomically via Lua scripts.
 
 ## How it works
 
