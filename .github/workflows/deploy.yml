@@ -1,0 +1,53 @@
+name: Build and Deploy
+
+on:
+  workflow_dispatch:
+
+env:
+  ECR_REPOSITORY: 380278405578.dkr.ecr.us-east-1.amazonaws.com/rategate
+  ECS_CLUSTER: rategate
+  ECS_SERVICE: rategate-svc
+  TASK_FAMILY: rategate
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push image
+        env:
+          IMAGE: ${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+        run: |
+          docker build -t $IMAGE .
+          docker push $IMAGE
+
+      - name: Deploy to ECS
+        env:
+          IMAGE: ${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+        run: |
+          # Fetch current task definition JSON, swap the image tag, strip read-only fields,
+          # register as a new revision, then update the service to use it.
+          TASK_DEF=$(aws ecs describe-task-definition --task-definition $TASK_FAMILY --query taskDefinition)
+          NEW_TASK_DEF=$(echo $TASK_DEF | jq \
+            --arg IMAGE "$IMAGE" \
+            '.containerDefinitions[0].image = $IMAGE |
+             del(.taskDefinitionArn,.revision,.status,.requiresAttributes,.compatibilities,.registeredAt,.registeredBy)')
+          NEW_REV=$(aws ecs register-task-definition \
+            --cli-input-json "$NEW_TASK_DEF" \
+            --query 'taskDefinition.taskDefinitionArn' --output text)
+          aws ecs update-service \
+            --cluster $ECS_CLUSTER \
+            --service $ECS_SERVICE \
+            --task-definition $NEW_REV
