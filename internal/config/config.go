@@ -19,6 +19,7 @@ type RedisConfig struct {
 	Addr     string `yaml:"addr"`
 	Password string `yaml:"password"`
 	DB       int    `yaml:"db"`
+	TLS      bool   `yaml:"tls"`
 }
 
 type ServerConfig struct {
@@ -61,6 +62,16 @@ func Load(path string) (*Config, error) {
 	var cfg Config
 	if err := yaml.NewDecoder(f).Decode(&cfg); err != nil {
 		return nil, fmt.Errorf("parsing config file: %w", err)
+	}
+
+	if v := os.Getenv("REDIS_ADDR"); v != "" {
+		cfg.Redis.Addr = v
+	}
+	if v := os.Getenv("REDIS_PASSWORD"); v != "" {
+		cfg.Redis.Password = v
+	}
+	if os.Getenv("REDIS_TLS") == "true" {
+		cfg.Redis.TLS = true
 	}
 
 	if err := cfg.validate(); err != nil {
